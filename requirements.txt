@@ -1,0 +1,9 @@
+python-telegram-bot==20.7
+python-dotenv
+easyocr
+torch
+pillow
+requests
+gspread
+google-auth
+pytz
