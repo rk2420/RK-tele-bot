@@ -1,9 +1,14 @@
 python-telegram-bot==20.7
 python-dotenv
-easyocr
-torch
+easyocr==1.7.2
 pillow
 requests
 gspread
 google-auth
 pytz
+numpy
+opencv-python-headless
+
+# CPU-only PyTorch
+torch==2.0.1+cpu
+torchvision==0.15.2+cpu
