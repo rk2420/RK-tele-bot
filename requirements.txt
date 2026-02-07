@@ -4,10 +4,11 @@ python-dotenv
 paddleocr==2.7.0.3
 paddlepaddle==2.6.2
 
+numpy==1.26.4
+opencv-python-headless==4.13.0.92
+
 pillow
 requests
 gspread
 google-auth
 pytz
-numpy==2.2.6
-opencv-python-headless==4.13.0.92
