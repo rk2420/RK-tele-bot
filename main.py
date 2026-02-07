@@ -95,11 +95,22 @@ def regex_extract(text: str) -> dict:
 
 # ===================== AI EXTRACTION (GROQ) =====================
 def ai_extract(text: str) -> dict:
-    prompt = """
-Extract visiting card details.
-Return ONLY valid JSON with keys:
-Name, Designation, Company, Address, Industry, Services.
-If missing, use "Not Found".
+    prompt = f"""
+You are extracting information from a visiting card OCR text.
+
+Rules:
+- Use reasoning to infer fields even if labels are missing.
+- Names are usually short, capitalized, near top.
+- Company names are often bold, larger, or repeated.
+- Address may span multiple lines.
+- If multiple guesses exist, choose the most likely one.
+- If absolutely impossible, return "Not Found".
+
+Return ONLY valid JSON with exactly these keys:
+Name, Designation, Company, Address, Industry, Services
+
+OCR TEXT:
+{text}
 """
 
     try:
@@ -111,12 +122,13 @@ If missing, use "Not Found".
             },
             json={
                 "model": "llama3-70b-8192",
+                "temperature": 0.2,
                 "messages": [
-                    {"role": "system", "content": prompt},
-                    {"role": "user", "content": text}
+                    {"role": "system", "content": "You are an expert at reading business cards."},
+                    {"role": "user", "content": prompt}
                 ]
             },
-            timeout=15
+            timeout=20
         )
 
         return json.loads(r.json()["choices"][0]["message"]["content"])
@@ -208,6 +220,13 @@ async def image_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = run_ocr(path)
 
+print("OCR RAW TEXT >>>>>>>>>>>>>>>>>>>")
+print(text)
+print("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+
+regex_data = regex_extract(text)
+ai_data = ai_extract(text)
+
     regex_data = regex_extract(text)
     ai_data = ai_extract(text)
 
@@ -254,3 +273,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
