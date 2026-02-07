@@ -1,7 +1,9 @@
 python-telegram-bot==20.7
 python-dotenv
+
 paddleocr==2.7.0.3
-paddlepaddle==2.6.1
+paddlepaddle==2.6.2
+
 pillow
 requests
 gspread
