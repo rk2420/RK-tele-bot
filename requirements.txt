@@ -1,6 +1,7 @@
 python-telegram-bot==20.7
 python-dotenv
-easyocr==1.7.2
+paddleocr==2.7.0.3
+paddlepaddle==2.6.1
 pillow
 requests
 gspread
@@ -8,6 +9,3 @@ google-auth
 pytz
 numpy==2.2.6
 opencv-python-headless==4.13.0.92
-
-torch==2.0.1
-torchvision==0.15.2
