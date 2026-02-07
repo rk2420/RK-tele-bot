@@ -1,15 +1,17 @@
 import os
 import re
 import json
+import base64
 import pytz
 import requests
 import easyocr
+import gspread
+
 from PIL import Image
 from datetime import datetime
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, MessageHandler, ContextTypes, filters
-import gspread
 from google.oauth2.service_account import Credentials
 
 # ================= LOAD CONFIG =================
@@ -18,6 +20,15 @@ load_dotenv()
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
+
+# ================= CREATE credentials.json (Railway fix) =================
+if not os.path.exists("credentials.json"):
+    encoded = os.getenv("GOOGLE_CREDENTIALS_BASE64")
+    if not encoded:
+        raise RuntimeError("GOOGLE_CREDENTIALS_BASE64 not found")
+
+    with open("credentials.json", "wb") as f:
+        f.write(base64.b64decode(encoded))
 
 # ================= GOOGLE SHEETS =================
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -205,3 +216,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
