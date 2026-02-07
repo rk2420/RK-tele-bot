@@ -211,7 +211,7 @@ Question:
 
 # ===================== TELEGRAM HANDLERS =====================
 async def image_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("📸 Image received & analyzing…")
+    await update.message.reply_text("📸 Image received & analyzing...")
 
     photo = update.message.photo[-1]
     file = await photo.get_file()
@@ -220,12 +220,9 @@ async def image_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = run_ocr(path)
 
-print("OCR RAW TEXT >>>>>>>>>>>>>>>>>>>")
-print(text)
-print("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-
-regex_data = regex_extract(text)
-ai_data = ai_extract(text)
+    print("OCR RAW TEXT >>>>>>>>>>>>>>>>>>")
+    print(text)
+    print("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
 
     regex_data = regex_extract(text)
     ai_data = ai_extract(text)
@@ -273,4 +270,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
