@@ -225,21 +225,36 @@ async def image_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     path = f"/tmp/{photo.file_id}.jpg"
     await file.download_to_drive(path)
 
-    ocr_text = run_ocr(path)
-    print("OCR TEXT:", ocr_text)
+    text = run_ocr(path)
 
-    cleaned = clean_text(ocr_text)
+    print("OCR RAW TEXT >>>")
+    print(text)
+    print("<<<<<<<<<<<<<<<<")
 
-    phone = extract_phone(cleaned)
-    email = extract_email(cleaned)
-    website = extract_website(cleaned)
+    regex_data = regex_extract(text)
+    ai_data = ai_extract(text)
 
-ai_data = ai_extract(cleaned) or {}
-ai_data = ai_extract(text)
+    print("AI RAW RESPONSE >>>")
+    print(ai_data)
+    print("<<<<<<<<<<<<<<<<")
 
-print("AI RAW RESPONSE >>>")
-print(ai_data)
-print("<<<<<<<<<<<<<<<<<<")
+    final_data = {
+        "Name": ai_data.get("Name", "Not Found"),
+        "Designation": ai_data.get("Designation", "Not Found"),
+        "Company": ai_data.get("Company", "Not Found"),
+        "Phone": regex_data["Phone"],
+        "Email": regex_data["Email"],
+        "Website": regex_data["Website"],
+        "Address": ai_data.get("Address", "Not Found"),
+        "Industry": ai_data.get("Industry", "Not Found"),
+        "Services": ai_data.get("Services", "Not Found")
+    }
+
+    user_context[update.effective_chat.id] = final_data
+    save_to_sheet(update.effective_chat.id, final_data)
+
+    reply = "\n".join([f"*{k}*: {v}" for k, v in final_data.items()])
+    await update.message.reply_markdown(reply)
 
 # Fallback heuristics
 name_guess = cleaned.split(" ")[0:2]
@@ -347,4 +362,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
