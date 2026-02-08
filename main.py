@@ -55,7 +55,6 @@ creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
 client = gspread.authorize(creds)
 sheet = client.open_by_key(SHEET_ID).sheet1
 
-# Header safety
 if sheet.row_count == 0 or sheet.cell(1, 1).value is None:
     sheet.append_row([
         "Timestamp (IST)",
@@ -72,7 +71,7 @@ if sheet.row_count == 0 or sheet.cell(1, 1).value is None:
     ])
 
 
-# ===================== OCR (PaddleOCR – CPU ONLY) =====================
+# ===================== OCR =====================
 ocr = PaddleOCR(use_angle_cls=True, lang="en", use_gpu=False)
 
 def run_ocr(image_path: str) -> str:
@@ -87,6 +86,7 @@ def run_ocr(image_path: str) -> str:
 # ===================== HELPERS =====================
 def safe(v):
     return v if v and str(v).strip() else "Not Found"
+
 
 def clean_text(text):
     text = text.replace("\n", " ")
@@ -103,26 +103,20 @@ def clean_text(text):
     }
     for k, v in replacements.items():
         text = text.replace(k, v)
-    text = re.sub(r"\s{2,}", " ", text)
-    return text.strip()
+    return re.sub(r"\s{2,}", " ", text).strip()
 
 
 # ===================== REGEX EXTRACTION =====================
-def extract_phone(text):
-    phones = re.findall(r'(\+91[\s\-]?\d{10}|\b\d{10}\b)', text)
-    return phones[0] if phones else "Not Found"
+def regex_extract(text: str) -> dict:
+    phone = re.findall(r'(\+91[\s\-]?\d{10}|\b\d{10}\b)', text)
+    email = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', text)
+    website = re.findall(r'(https?://\S+|www\.\S+)', text)
 
-def extract_email(text):
-    match = re.search(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', text)
-    return match.group() if match else "Not Found"
-
-def extract_website(text):
-    text = text.replace("www ", "www.")
-    match = re.search(
-        r'(https?://[^\s]+|www\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',
-        text
-    )
-    return match.group() if match else "Not Found"
+    return {
+        "Phone": phone[0] if phone else "Not Found",
+        "Email": email[0] if email else "Not Found",
+        "Website": website[0] if website else "Not Found"
+    }
 
 
 # ===================== SAFE JSON =====================
@@ -139,17 +133,11 @@ def safe_json_load(text):
         return None
 
 
-# ===================== GROQ AI EXTRACTION =====================
+# ===================== GROQ AI =====================
 def ai_extract(text: str) -> dict:
     prompt = f"""
-You are an expert business card parser.
+Return ONLY valid JSON.
 
-RULES:
-- Output ONLY valid JSON
-- No explanation, no markdown
-- Empty string if missing
-
-JSON FORMAT:
 {{
   "Name": "",
   "Designation": "",
@@ -182,7 +170,7 @@ TEXT:
         return None
 
 
-# ===================== SAVE TO GOOGLE SHEET =====================
+# ===================== SAVE TO SHEET =====================
 def save_to_sheet(chat_id, data):
     ist = pytz.timezone("Asia/Kolkata")
     timestamp = datetime.now(ist).strftime("%Y-%m-%d %H:%M:%S")
@@ -225,64 +213,19 @@ async def image_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     path = f"/tmp/{photo.file_id}.jpg"
     await file.download_to_drive(path)
 
-    text = run_ocr(path)
+    raw_text = run_ocr(path)
+    cleaned = clean_text(raw_text)
 
-    print("OCR RAW TEXT >>>")
-    print(text)
-    print("<<<<<<<<<<<<<<<<")
-
-    regex_data = regex_extract(text)
-    ai_data = ai_extract(text)
-
-    print("AI RAW RESPONSE >>>")
-    print(ai_data)
-    print("<<<<<<<<<<<<<<<<")
-
-    final_data = {
-        "Name": ai_data.get("Name", "Not Found"),
-        "Designation": ai_data.get("Designation", "Not Found"),
-        "Company": ai_data.get("Company", "Not Found"),
-        "Phone": regex_data["Phone"],
-        "Email": regex_data["Email"],
-        "Website": regex_data["Website"],
-        "Address": ai_data.get("Address", "Not Found"),
-        "Industry": ai_data.get("Industry", "Not Found"),
-        "Services": ai_data.get("Services", "Not Found")
-    }
-
-    user_context[update.effective_chat.id] = final_data
-    save_to_sheet(update.effective_chat.id, final_data)
-
-    reply = "\n".join([f"*{k}*: {v}" for k, v in final_data.items()])
-    await update.message.reply_markdown(reply)
-
-# Fallback heuristics
-name_guess = cleaned.split(" ")[0:2]
-name_guess = " ".join(name_guess) if name_guess else "Not Found"
-
-final_data = {
-    "Name": safe(ai_data.get("Name") or name_guess),
-    "Designation": safe(ai_data.get("Designation") or "Real Estate Agent"),
-    "Company": safe(ai_data.get("Company") or "Not Found"),
-    "Phone": phone,
-    "Email": email,
-    "Website": website,
-    "Address": safe(ai_data.get("Address")),
-    "Industry": safe(ai_data.get("Industry") or "Real Estate"),
-    "Services": (
-        ", ".join(ai_data.get("Services"))
-        if ai_data.get("Services")
-        else "Property Sales, Leasing"
-    )
-}
+    regex_data = regex_extract(cleaned)
+    ai_data = ai_extract(cleaned) or {}
 
     final_data = {
         "Name": safe(ai_data.get("Name")),
         "Designation": safe(ai_data.get("Designation")),
         "Company": safe(ai_data.get("Company")),
-        "Phone": phone,
-        "Email": email,
-        "Website": website,
+        "Phone": regex_data["Phone"],
+        "Email": regex_data["Email"],
+        "Website": regex_data["Website"],
         "Address": safe(ai_data.get("Address")),
         "Industry": safe(ai_data.get("Industry")),
         "Services": ", ".join(ai_data.get("Services")) if ai_data.get("Services") else "Not Found"
@@ -291,38 +234,26 @@ final_data = {
     user_context[update.effective_chat.id] = final_data
     save_to_sheet(update.effective_chat.id, final_data)
 
-    reply = (
-        f"📇 Visiting Card Details\n\n"
-        f"Name: {final_data['Name']}\n"
-        f"Designation: {final_data['Designation']}\n"
-        f"Company: {final_data['Company']}\n"
-        f"Phone: {final_data['Phone']}\n"
-        f"Email: {final_data['Email']}\n"
-        f"Website: {final_data['Website']}\n"
-        f"Address: {final_data['Address']}\n"
-        f"Industry: {final_data['Industry']}\n"
-        f"Services: {final_data['Services']}"
-    )
-
+    reply = "\n".join([f"{k}: {v}" for k, v in final_data.items()])
     await update.message.reply_text(reply)
 
 
-# ===================== FOLLOW-UP TEXT =====================
+# ===================== FOLLOW-UP =====================
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+
     if chat_id not in user_context:
         await update.message.reply_text("📸 Please upload a visiting card first.")
         return
 
-    company_data = user_context[chat_id]
+    data = user_context[chat_id]
 
     prompt = f"""
-Company: {company_data['Company']}
-Industry: {company_data['Industry']}
-Services: {company_data['Services']}
+Company: {data['Company']}
+Industry: {data['Industry']}
+Services: {data['Services']}
 
-Answer the user's question using public knowledge.
-Focus on India.
+Answer the question using public knowledge (India-focused).
 """
 
     try:
@@ -335,15 +266,11 @@ Focus on India.
             json={
                 "model": "llama3-70b-8192",
                 "temperature": 0.3,
-                "messages": [
-                    {"role": "user", "content": prompt + "\nQuestion:\n" + update.message.text}
-                ]
+                "messages": [{"role": "user", "content": prompt + "\n\n" + update.message.text}]
             },
             timeout=15
         )
-        await update.message.reply_text(
-            r.json()["choices"][0]["message"]["content"]
-        )
+        await update.message.reply_text(r.json()["choices"][0]["message"]["content"])
     except Exception:
         await update.message.reply_text("Unable to fetch answer right now.")
 
@@ -362,6 +289,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
