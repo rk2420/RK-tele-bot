@@ -234,10 +234,32 @@ async def image_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     email = extract_email(cleaned)
     website = extract_website(cleaned)
 
-    ai_data = ai_extract(cleaned)
-    if not ai_data:
-        await update.message.reply_text("⚠️ Could not extract details. Try clearer image.")
-        return
+ai_data = ai_extract(cleaned) or {}
+ai_data = ai_extract(text)
+
+print("AI RAW RESPONSE >>>")
+print(ai_data)
+print("<<<<<<<<<<<<<<<<<<")
+
+# Fallback heuristics
+name_guess = cleaned.split(" ")[0:2]
+name_guess = " ".join(name_guess) if name_guess else "Not Found"
+
+final_data = {
+    "Name": safe(ai_data.get("Name") or name_guess),
+    "Designation": safe(ai_data.get("Designation") or "Real Estate Agent"),
+    "Company": safe(ai_data.get("Company") or "Not Found"),
+    "Phone": phone,
+    "Email": email,
+    "Website": website,
+    "Address": safe(ai_data.get("Address")),
+    "Industry": safe(ai_data.get("Industry") or "Real Estate"),
+    "Services": (
+        ", ".join(ai_data.get("Services"))
+        if ai_data.get("Services")
+        else "Property Sales, Leasing"
+    )
+}
 
     final_data = {
         "Name": safe(ai_data.get("Name")),
@@ -325,3 +347,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
